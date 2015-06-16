@@ -19,7 +19,7 @@ if len(sys.argv) < 2:
     print "Usage: bestOf <count> <command>"
     sys.exit(0)
 
-TIME_RE = re.compile("PERF:\s*([^0-9]+)(\\d+) ms")
+TIME_RE = re.compile("PERF:\s*(.+)\s+(\\d+) ms")
 
 times = {}
 
