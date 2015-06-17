@@ -14,26 +14,39 @@ def check_output(*popenargs, **kwargs):
         raise subprocess.CalledProcessError(retcode, cmd, output=output)
     return output
 
+TIME_RE = re.compile("PERF:\s*(.+)\s+(\\d+) ms")
+TAG_RE = re.compile("^([A-Z]+):")
+
+
+def run_command(args):
+    print "Running " + " ".join(args)
+    command_times = {}
+    output = check_output(args)
+    for line in output.split('\n'):
+        print line
+        match = TIME_RE.search(line)
+        if match:
+            operation = match.group(1)
+            tag_match = TAG_RE.search(operation)
+            if tag_match:
+                operation = tag_match.group(1)
+            time = int(match.group(2))
+            prev_time = command_times.get(operation, 0)
+            command_times[operation] = time + prev_time
+    return command_times
 
 if len(sys.argv) < 2:
     print "Usage: bestOf <count> <command>"
     sys.exit(0)
 
-TIME_RE = re.compile("PERF:\s*(.+)\s+(\\d+) ms")
-
 times = {}
 
 for i in range(int(sys.argv[1])):
-    output = check_output(sys.argv[2:])
-    for line in output.split('\n'):
-        match = TIME_RE.search(line)
-        if match:
-            operation = match.group(1)
-            time = int(match.group(2))
-            prev_time = times.get(operation)
-            if not prev_time or time < prev_time:
-                times[operation] = time
+    command_times = run_command(sys.argv[2:])
+    for op, time in command_times.items():
+        prev_time = times.get(op)
+        if not prev_time or time < prev_time:
+            times[op] = time
 
 for op, time in times.items():
     print("##teamcity[buildStatisticValue key='%(op)s' value='%(time)d']" % {'op': op.strip(), 'time': time})
-
