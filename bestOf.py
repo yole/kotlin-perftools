@@ -12,7 +12,10 @@ def check_output(*popenargs, **kwargs):
         cmd = kwargs.get("args")
         if cmd is None:
             cmd = popenargs[0]
-        raise subprocess.CalledProcessError(retcode, cmd, output=output)
+
+        error = subprocess.CalledProcessError(retcode, cmd)
+        error.output = output
+        raise error
     return output
 
 TIME_RE = re.compile("PERF:\s*(.+)\s+(\\d+) ms")
