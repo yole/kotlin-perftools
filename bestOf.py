@@ -1,6 +1,7 @@
 import re
 import subprocess
 import sys
+from optparse import OptionParser
 
 
 def check_output(*popenargs, **kwargs):
@@ -18,7 +19,7 @@ TIME_RE = re.compile("PERF:\s*(.+)\s+(\\d+) ms")
 TAG_RE = re.compile("^([A-Z]+):")
 
 
-def run_command(args):
+def run_command(args, useBestInRun):
     print "Running " + " ".join(args)
     command_times = {}
     output = check_output(args)
@@ -32,21 +33,37 @@ def run_command(args):
                 operation = tag_match.group(1)
             time = int(match.group(2))
             prev_time = command_times.get(operation, 0)
-            command_times[operation] = time + prev_time
+            if useBestInRun:
+                if not prev_time or time < prev_time:
+                    command_times[operation] = time
+            else:
+                command_times[operation] = time + prev_time
     return command_times
 
-if len(sys.argv) < 2:
-    print "Usage: bestOf <count> <command>"
-    sys.exit(0)
 
-times = {}
+def main():
+    parser = OptionParser("Usage: %prog [options] command")
+    parser.add_option("-c", dest="count", type="int", default=1)
+    parser.add_option("-p", dest="prefix")
+    parser.add_option("-b", dest="bestInRun", action="store_true")
 
-for i in range(int(sys.argv[1])):
-    command_times = run_command(sys.argv[2:])
-    for op, time in command_times.items():
-        prev_time = times.get(op)
-        if not prev_time or time < prev_time:
-            times[op] = time
+    (options, args) = parser.parse_args()
 
-for op, time in times.items():
-    print("##teamcity[buildStatisticValue key='%(op)s' value='%(time)d']" % {'op': op.strip(), 'time': time})
+    if not args:
+        parser.error("Command must be specified")
+
+    times = {}
+
+    for i in range(int(options.count)):
+        command_times = run_command(args, options.bestInRun)
+        for op, time in command_times.items():
+            prev_time = times.get(op)
+            if not prev_time or time < prev_time:
+                times[op] = time
+
+    for op, time in times.items():
+        statistic_key = options.prefix + " " + op.strip() if options.prefix else op.strip()
+        print("##teamcity[buildStatisticValue key='%(key)s' value='%(time)d']" % {'key': statistic_key, 'time': time})
+
+if __name__ == "__main__":
+    main()
