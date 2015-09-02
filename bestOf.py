@@ -25,7 +25,13 @@ TAG_RE = re.compile("^([A-Z]+):")
 def run_command(args, useBestInRun):
     print "Running " + " ".join(args)
     command_times = {}
-    output = check_output(args)
+    try:
+        output = check_output(args)
+    except subprocess.CalledProcessError as e:
+        print "Command execution failed:"
+        print e.output
+        sys.exit(1)
+
     for line in output.split('\n'):
         print line
         match = TIME_RE.search(line)
